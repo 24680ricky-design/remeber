@@ -2,19 +2,56 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
 
-This contains everything you need to run your app locally.
+# Life Manager (記帳 App)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1xJGXcG8d6SHOI17LLy_hiy5QsMsRBJal
+這是一個使用 React 與 Vite 建構的記帳應用程式。
 
-## Run Locally
+## 🚀 快速開始
 
-**Prerequisites:**  Node.js
+### 前置需求
+* Node.js (建議 v18 或更高版本)
+* npm
 
+### 安裝與執行
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **安裝依賴套件**
+   ```bash
+   npm install
+   ```
+
+2. **設定環境變數**
+   請複製 `.env.example` (如果有的話) 或自行建立 `.env` 檔案，並設定必要的金鑰。
+
+3. **啟動開發伺服器**
+   ```bash
+   npm run dev
+   ```
+   伺服器預設會在 `http://localhost:5173` 啟動。
+
+## 🛠️ 可用指令
+
+| 指令 | 說明 |
+|------|------|
+| `npm run dev` | 啟動開發環境 |
+| `npm run build` | 建置生產版本 |
+| `npm run preview` | 預覽生產版本建置結果 |
+
+## 📦 部署
+
+本專案已設定 GitHub Actions 自動部署。
+當程式碼推送到 `main` (或 `master`) 分支時，會自動建置並部署到 **GitHub Pages**。
+
+### 手動部署
+如果需要手動部署，可以執行：
+```bash
+npm run build
+# 然後將 dist/ 資料夾內容上傳到您的伺服器
+```
+
+## 📂 專案結構
+
+* `src/` - 原始碼
+  * `components/` - React 元件
+  * `services/` - API 服務與邏輯
+* `public/` - 靜態資源

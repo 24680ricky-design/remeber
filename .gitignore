@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Micro-frontend / Environmental
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage/
