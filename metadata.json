@@ -1,0 +1,5 @@
+{
+  "name": "LifeManager",
+  "description": "A Nordic-style personal management tool integrating expense tracking and todo lists with dual local/cloud storage modes.",
+  "requestFramePermissions": []
+}
