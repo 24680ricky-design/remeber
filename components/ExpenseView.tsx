@@ -3,8 +3,9 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } 
 import { Transaction, Category, TransactionType } from '../types';
 import { Trash2, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { api } from '../services/api';
-import { COLORS } from '../constants';
+import { COLORS, CURRENCIES } from '../constants';
 import * as Icons from 'lucide-react';
+import { getExchangeRate } from '../services/currency';
 
 interface ExpenseViewProps {
   initialNote?: string;
@@ -14,10 +15,10 @@ interface ExpenseViewProps {
   onTransactionChange: () => void;
 }
 
-const ExpenseView: React.FC<ExpenseViewProps> = ({ 
-  initialNote, 
-  clearInitialNote, 
-  transactions, 
+const ExpenseView: React.FC<ExpenseViewProps> = ({
+  initialNote,
+  clearInitialNote,
+  transactions,
   categories,
   onTransactionChange
 }) => {
@@ -26,6 +27,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
   const [type, setType] = useState<TransactionType>(TransactionType.EXPENSE);
   const [selectedCatId, setSelectedCatId] = useState<string>(categories[0]?.id || '');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [currency, setCurrency] = useState<string>('TWD');
   const [loading, setLoading] = useState(false);
 
   // Pre-fill note if coming from Todo
@@ -41,19 +43,40 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
     if (!amount || isNaN(parseFloat(amount))) return;
 
     setLoading(true);
+    let finalAmount = parseFloat(amount);
+    let finalNote = note;
+
+    if (currency !== 'TWD') {
+      try {
+        const rate = await getExchangeRate(currency, 'TWD');
+        if (rate) {
+          const originalAmount = finalAmount;
+          finalAmount = Math.round(originalAmount * rate);
+          const noteSuffix = ` (原幣: ${currency} ${originalAmount})`;
+          finalNote = finalNote ? finalNote + noteSuffix : noteSuffix;
+        } else {
+          alert('無法取得匯率，將以原幣金額儲存');
+        }
+      } catch (error) {
+        console.error(error);
+        alert('匯率換算失敗');
+      }
+    }
+
     const newTx: Transaction = {
       id: Date.now().toString(),
       date,
       type,
       categoryId: selectedCatId,
-      amount: parseFloat(amount),
-      note
+      amount: finalAmount,
+      note: finalNote
     };
 
     const res = await api.addTransaction(newTx);
     if (res.success) {
       setAmount('');
       setNote('');
+      setCurrency('TWD'); // Reset to default
       if (initialNote) clearInitialNote();
       onTransactionChange();
     } else {
@@ -63,7 +86,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    if(!window.confirm("確定要刪除這筆紀錄嗎？")) return;
+    if (!window.confirm("確定要刪除這筆紀錄嗎？")) return;
     const res = await api.deleteTransaction(id);
     if (res.success) {
       onTransactionChange();
@@ -74,10 +97,10 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
   const summary = useMemo(() => {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const monthTx = transactions.filter(t => t.date.startsWith(currentMonth));
-    
+
     const income = monthTx.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
     const expense = monthTx.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
-    
+
     return { income, expense, balance: income - expense };
   }, [transactions]);
 
@@ -86,7 +109,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
     const currentMonth = new Date().toISOString().slice(0, 7);
     const expenseTx = transactions.filter(t => t.type === TransactionType.EXPENSE && t.date.startsWith(currentMonth));
     const grouped: Record<string, number> = {};
-    
+
     expenseTx.forEach(t => {
       const catName = categories.find(c => c.id === t.categoryId)?.label || '其他';
       grouped[catName] = (grouped[catName] || 0) + t.amount;
@@ -102,18 +125,18 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
       {/* Dashboard Cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-5 rounded-[2rem] shadow-sm flex flex-col justify-between h-32">
-           <div className="flex items-center text-nordic-green mb-2">
-             <TrendingUp size={18} className="mr-2" />
-             <span className="text-xs font-semibold uppercase tracking-wider">本月收入</span>
-           </div>
-           <span className="text-2xl font-bold text-gray-800">${summary.income.toLocaleString()}</span>
+          <div className="flex items-center text-nordic-green mb-2">
+            <TrendingUp size={18} className="mr-2" />
+            <span className="text-xs font-semibold uppercase tracking-wider">本月收入</span>
+          </div>
+          <span className="text-2xl font-bold text-gray-800">${summary.income.toLocaleString()}</span>
         </div>
         <div className="bg-white p-5 rounded-[2rem] shadow-sm flex flex-col justify-between h-32">
-           <div className="flex items-center text-red-400 mb-2">
-             <TrendingDown size={18} className="mr-2" />
-             <span className="text-xs font-semibold uppercase tracking-wider">本月支出</span>
-           </div>
-           <span className="text-2xl font-bold text-gray-800">${summary.expense.toLocaleString()}</span>
+          <div className="flex items-center text-red-400 mb-2">
+            <TrendingDown size={18} className="mr-2" />
+            <span className="text-xs font-semibold uppercase tracking-wider">本月支出</span>
+          </div>
+          <span className="text-2xl font-bold text-gray-800">${summary.expense.toLocaleString()}</span>
         </div>
       </div>
 
@@ -139,16 +162,34 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
             </div>
           </div>
 
-          <div className="relative">
-             <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={24} />
-             <input
-               type="number"
-               inputMode="decimal"
-               placeholder="0.00"
-               value={amount}
-               onChange={(e) => setAmount(e.target.value)}
-               className="w-full pl-12 pr-4 py-4 text-4xl font-bold text-gray-700 bg-transparent border-b-2 border-gray-100 focus:border-nordic-green outline-none transition-colors placeholder-gray-200"
-             />
+          <div className="relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                {CURRENCIES.find(c => c.code === currency)?.symbol}
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 text-4xl font-bold text-gray-700 bg-transparent border-b-2 border-gray-100 focus:border-nordic-green outline-none transition-colors placeholder-gray-200"
+              />
+            </div>
+            <div className="relative w-24">
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="w-full h-full py-4 bg-gray-50 rounded-xl text-center font-bold text-gray-600 outline-none focus:ring-2 focus:ring-nordic-green/20 appearance-none"
+              >
+                {CURRENCIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.code}</option>
+                ))}
+              </select>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                <Icons.ChevronDown size={14} />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-4 gap-2 py-2">
@@ -163,38 +204,38 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
                   onClick={() => setSelectedCatId(cat.id)}
                   className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${isSelected ? 'bg-nordic-green/10 ring-2 ring-nordic-green ring-offset-2' : 'hover:bg-gray-50'}`}
                 >
-                   <div 
-                    style={{ backgroundColor: isSelected ? cat.color : '#f3f4f6' }} 
+                  <div
+                    style={{ backgroundColor: isSelected ? cat.color : '#f3f4f6' }}
                     className="w-10 h-10 rounded-full flex items-center justify-center mb-1 transition-colors"
-                   >
-                     <IconComp size={18} color={isSelected ? '#fff' : '#9ca3af'} />
-                   </div>
-                   <span className={`text-[10px] truncate w-full text-center ${isSelected ? 'font-bold text-nordic-text' : 'text-gray-400'}`}>
-                     {cat.label}
-                   </span>
+                  >
+                    <IconComp size={18} color={isSelected ? '#fff' : '#9ca3af'} />
+                  </div>
+                  <span className={`text-[10px] truncate w-full text-center ${isSelected ? 'font-bold text-nordic-text' : 'text-gray-400'}`}>
+                    {cat.label}
+                  </span>
                 </button>
               )
             })}
           </div>
 
           <div className="flex gap-2">
-             <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="備註事項..."
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-nordic-green/20 outline-none"
-                />
-             </div>
-             <div className="relative w-1/3">
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-nordic-green/20 outline-none"
-                />
-             </div>
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="備註事項..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-nordic-green/20 outline-none"
+              />
+            </div>
+            <div className="relative w-1/3">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-nordic-green/20 outline-none"
+              />
+            </div>
           </div>
 
           <button
@@ -206,62 +247,62 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
           </button>
         </form>
       </div>
-      
+
       {/* Chart & List */}
       {chartData.length > 0 && (
-         <div className="bg-white p-6 rounded-[2rem] shadow-sm">
-           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">統計分析</h3>
-           <div className="h-48 w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie
-                   data={chartData}
-                   cx="50%"
-                   cy="50%"
-                   innerRadius={40}
-                   outerRadius={70}
-                   paddingAngle={5}
-                   dataKey="value"
-                 >
-                   {chartData.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={COLORS_CHART[index % COLORS_CHART.length]} />
-                   ))}
-                 </Pie>
-                 <RechartsTooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                 />
-               </PieChart>
-             </ResponsiveContainer>
-           </div>
-         </div>
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm">
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">統計分析</h3>
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={70}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS_CHART[index % COLORS_CHART.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       )}
 
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest px-4">近期紀錄</h3>
         {transactions.slice(0, 10).map((tx) => {
-           const cat = categories.find(c => c.id === tx.categoryId);
-           const IconComp = (Icons as any)[cat?.iconKey || 'Circle'] || Icons.Circle;
-           return (
-             <div key={tx.id} className="bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                   <div style={{ backgroundColor: cat?.color || '#eee' }} className="w-10 h-10 rounded-full flex items-center justify-center text-white">
-                      <IconComp size={18} />
-                   </div>
-                   <div>
-                     <p className="font-semibold text-gray-700 text-sm">{tx.note || cat?.label}</p>
-                     <p className="text-xs text-gray-400">{tx.date}</p>
-                   </div>
+          const cat = categories.find(c => c.id === tx.categoryId);
+          const IconComp = (Icons as any)[cat?.iconKey || 'Circle'] || Icons.Circle;
+          return (
+            <div key={tx.id} className="bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div style={{ backgroundColor: cat?.color || '#eee' }} className="w-10 h-10 rounded-full flex items-center justify-center text-white">
+                  <IconComp size={18} />
                 </div>
-                <div className="flex items-center gap-3">
-                   <span className={`font-bold ${tx.type === TransactionType.INCOME ? 'text-nordic-green' : 'text-gray-800'}`}>
-                     {tx.type === TransactionType.INCOME ? '+' : '-'}${Math.abs(tx.amount).toLocaleString()}
-                   </span>
-                   <button onClick={() => handleDelete(tx.id)} className="text-gray-300 hover:text-red-400 transition-colors">
-                     <Trash2 size={16} />
-                   </button>
+                <div>
+                  <p className="font-semibold text-gray-700 text-sm">{tx.note || cat?.label}</p>
+                  <p className="text-xs text-gray-400">{tx.date}</p>
                 </div>
-             </div>
-           )
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`font-bold ${tx.type === TransactionType.INCOME ? 'text-nordic-green' : 'text-gray-800'}`}>
+                  {tx.type === TransactionType.INCOME ? '+' : '-'}${Math.abs(tx.amount).toLocaleString()}
+                </span>
+                <button onClick={() => handleDelete(tx.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          )
         })}
       </div>
     </div>

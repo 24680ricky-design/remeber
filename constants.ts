@@ -26,3 +26,12 @@ export const STORAGE_KEYS = {
   APP_TITLE: 'lifemanager_app_title',
   LOCAL_DATA: 'lifemanager_local_data',
 };
+
+export const CURRENCIES = [
+  { code: 'TWD', label: '新台幣', symbol: 'NT$' },
+  { code: 'USD', label: '美金', symbol: '$' },
+  { code: 'JPY', label: '日幣', symbol: '¥' },
+  { code: 'EUR', label: '歐元', symbol: '€' },
+  { code: 'KRW', label: '韓元', symbol: '₩' },
+  { code: 'CNY', label: '人民幣', symbol: '¥' },
+];
