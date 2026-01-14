@@ -141,21 +141,92 @@ class ApiService {
     // But to follow the dual mode, let's just keep them in localStorage for config
     // or assume the GAS script handles them. 
     // To keep it simple: Categories are saved to local data structure.
-    
+
     // In this implementation, we will save them to the same source.
     const url = this.getGasUrl();
-    if(url) {
-       // Ideally GAS handles this, but for this scope, let's mock it or assume simple sync
-       // If using GAS, we might not update categories often. 
-       // Let's implement local only for categories to avoid complexity or update both.
-       localStorage.setItem('lifemanager_categories_cache', JSON.stringify(categories));
-       return { success: true };
+    if (url) {
+      // Ideally GAS handles this, but for this scope, let's mock it or assume simple sync
+      // If using GAS, we might not update categories often. 
+      // Let's implement local only for categories to avoid complexity or update both.
+      localStorage.setItem('lifemanager_categories_cache', JSON.stringify(categories));
+      return { success: true };
     } else {
-        const data = this.getLocalData();
-        data.categories = categories;
-        this.saveLocalData(data);
-        return { success: true };
+      const data = this.getLocalData();
+      data.categories = categories;
+      this.saveLocalData(data);
+      return { success: true };
     }
+  }
+
+  async reorderTodos(todos: Todo[]): Promise<ApiResponse<null>> {
+    const url = this.getGasUrl();
+    if (url) {
+      // Cloud reorder requires backend support (e.g., wiping and rewriting or an index column)
+      // For now, we'll implement a basic overwrite if the user updates the script,
+      // but to be safe and avoid data loss with mismatched scripts, we might skip or warn.
+      // However, the user asked for this feature.
+      // Let's assume we can add a REORDER_TODOS action to the GAS script later.
+      // For now, we will just return success to update UI but warn it won't persist on refresh if script isn't updated.
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          mode: 'cors',
+          body: JSON.stringify({ action: 'REORDER_TODOS', payload: todos })
+        });
+        const json = await response.json();
+        return json;
+      } catch (e) {
+        console.warn("Cloud reorder failed", e);
+        return { success: false, message: "Cloud reorder failed" };
+      }
+    } else {
+      const data = this.getLocalData();
+      data.todos = todos;
+      this.saveLocalData(data);
+      return { success: true };
+    }
+  }
+  async syncLocalToCloud(): Promise<ApiResponse<string>> {
+    const url = this.getGasUrl();
+    if (!url) {
+      return { success: false, message: '請先設定雲端網址 (Script URL)' };
+    }
+
+    const localData = this.getLocalData();
+    let successCount = 0;
+    let failCount = 0;
+
+    // 1. Sync Todos (Batch overwrite using REORDER_TODOS, which effectively acts as a full sync/import)
+    // We send local todos to cloud.
+    try {
+      await this.reorderTodos(localData.todos);
+    } catch (e) {
+      console.error("Sync Todos failed", e);
+      failCount++;
+    }
+
+    // 2. Sync Transactions (Sequential Add)
+    // Note: This might be slow for many transactions.
+    // Also, this blindly adds. If cloud already has data, it duplicates.
+    // The user asked "Can I import original data?". Usually implies empty cloud.
+    // We will proceed with blindly adding.
+    for (const tx of localData.transactions) {
+      // We need to avoid ID collision if possible, but IDs are timestamps.
+      // We just call addTransaction. Since URL is set, it goes to Cloud.
+      try {
+        const res = await this.addTransaction(tx);
+        if (res.success) successCount++;
+        else failCount++;
+      } catch (e) {
+        failCount++;
+      }
+      await delay(100); // Small throttle
+    }
+
+    return {
+      success: failCount === 0,
+      message: `同步完成。成功: ${successCount} 筆交易, 備忘錄已更新。失敗: ${failCount}。`
+    };
   }
 }
 

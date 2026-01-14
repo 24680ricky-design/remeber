@@ -70,6 +70,10 @@ function handleRequest(e) {
        deleteRow(doc, "Todos", payload.id);
        result = { success: true };
     }
+    else if (action === "REORDER_TODOS") {
+       updateAllTodos(doc, payload); // Payload is the array of todos
+       result = { success: true };
+    }
     else {
        result = { success: false, message: "Unknown Action" };
     }
@@ -129,6 +133,26 @@ function addTransaction(doc, data) {
 function addTodo(doc, data) {
   var sheet = doc.getSheetByName("Todos");
   sheet.appendRow([data.id, data.text, data.isCompleted, data.createdAt]);
+}
+
+function updateAllTodos(doc, todos) {
+  var sheet = doc.getSheetByName("Todos");
+  // Clear Content but keep headers (Row 1)
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+  }
+  
+  // Batch append
+  if (todos.length > 0) {
+      // Prepare 2D array
+      var rows = todos.map(function(t) {
+        return [t.id, t.text, t.isCompleted, t.createdAt];
+      });
+      
+      // getRange(row, column, numRows, numColumns)
+      sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+  }
 }
 
 function toggleTodo(doc, id, isCompleted) {
