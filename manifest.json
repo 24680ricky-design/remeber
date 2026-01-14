@@ -1,7 +1,7 @@
 {
     "name": "LifeManager",
     "short_name": "LifeManager",
-    "start_url": "./",
+    "start_url": "/remeber/",
     "display": "standalone",
     "background_color": "#fdfbf7",
     "theme_color": "#fdfbf7",
