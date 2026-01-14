@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { STORAGE_KEYS, DEFAULT_CATEGORIES } from '../constants';
 import { Category } from '../types';
-import { Save, RefreshCw, X, Plus, HelpCircle, ChevronDown, ChevronUp, UploadCloud } from 'lucide-react';
+import { Save, RefreshCw, X, Plus, HelpCircle, ChevronDown, ChevronUp, UploadCloud, Copy, Check } from 'lucide-react';
 import { api } from '../services/api';
 
 interface SettingsProps {
@@ -9,12 +9,201 @@ interface SettingsProps {
   onCategoriesChange: (cats: Category[]) => void;
 }
 
+const DEFAULT_BACKEND_CODE = `// --- CONFIGURATION ---
+var SCRIPT_PROP = PropertiesService.getScriptProperties();
+
+function setup() {
+  var doc = SpreadsheetApp.getActiveSpreadsheet();
+  SCRIPT_PROP.setProperty("key", doc.getId());
+  
+  // Ensure sheets exist
+  ensureSheet("Transactions", ["id", "date", "type", "categoryId", "amount", "note"]);
+  ensureSheet("Todos", ["id", "text", "isCompleted", "createdAt"]);
+}
+
+function ensureSheet(name, headers) {
+  var doc = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = doc.getSheetByName(name);
+  if (!sheet) {
+    sheet = doc.insertSheet(name);
+    sheet.appendRow(headers);
+  }
+}
+
+// --- API ENTRY POINTS ---
+
+function doGet(e) {
+  return handleRequest(e);
+}
+
+function doPost(e) {
+  return handleRequest(e);
+}
+
+function handleRequest(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+
+  try {
+    var action = e.parameter.action;
+    
+    // If POST, body is in e.postData.contents
+    var payload = null;
+    if (e.postData && e.postData.contents) {
+        var body = JSON.parse(e.postData.contents);
+        action = body.action;
+        payload = body.payload;
+    }
+
+    var doc = SpreadsheetApp.openById(SCRIPT_PROP.getProperty("key"));
+    var result = {};
+
+    if (action === "GET_DATA") {
+       result = getAllData(doc);
+    } 
+    else if (action === "ADD_TRANSACTION") {
+       addTransaction(doc, payload);
+       result = { success: true };
+    }
+    else if (action === "DELETE_TRANSACTION") {
+       deleteRow(doc, "Transactions", payload.id);
+       result = { success: true };
+    }
+    else if (action === "ADD_TODO") {
+       addTodo(doc, payload);
+       result = { success: true };
+    }
+    else if (action === "TOGGLE_TODO") {
+       toggleTodo(doc, payload.id, payload.isCompleted);
+       result = { success: true };
+    }
+    else if (action === "DELETE_TODO") {
+       deleteRow(doc, "Todos", payload.id);
+       result = { success: true };
+    }
+    else if (action === "REORDER_TODOS") {
+       updateAllTodos(doc, payload);
+       result = { success: true };
+    }
+    else {
+       result = { success: false, message: "Unknown Action" };
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (e) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ "success": false, "message": e.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// --- LOGIC ---
+
+function getAllData(doc) {
+  var txSheet = doc.getSheetByName("Transactions");
+  var todoSheet = doc.getSheetByName("Todos");
+  
+  var txData = sheetToObjects(txSheet);
+  // Convert amount to number
+  txData.forEach(function(t) { t.amount = Number(t.amount); });
+
+  var todoData = sheetToObjects(todoSheet);
+  // Convert boolean
+  todoData.forEach(function(t) { t.isCompleted = (t.isCompleted === 'TRUE' || t.isCompleted === true); });
+
+  // Helper for Default Categories (Static in GAS, could be dynamic)
+  var categories = [
+    { id: 'cat_1', label: '飲食', iconKey: 'Utensils', color: '#e8d5d5' },
+    { id: 'cat_2', label: '交通', iconKey: 'Bus', color: '#8fa3ad' },
+    { id: 'cat_3', label: '購物', iconKey: 'ShoppingBag', color: '#8da399' },
+    { id: 'cat_4', label: '娛樂', iconKey: 'Film', color: '#f0c4c4' },
+    { id: 'cat_5', label: '帳單', iconKey: 'Zap', color: '#b8c5d6' },
+    { id: 'cat_6', label: '醫療', iconKey: 'Heart', color: '#d6b8b8' }
+  ];
+
+  return {
+    success: true,
+    data: {
+      transactions: txData.reverse(), // Newest first
+      todos: todoData,
+      categories: categories
+    }
+  };
+}
+
+function addTransaction(doc, data) {
+  var sheet = doc.getSheetByName("Transactions");
+  sheet.appendRow([data.id, data.date, data.type, data.categoryId, data.amount, data.note]);
+}
+
+function addTodo(doc, data) {
+  var sheet = doc.getSheetByName("Todos");
+  sheet.appendRow([data.id, data.text, data.isCompleted, data.createdAt]);
+}
+
+function updateAllTodos(doc, todos) {
+  var sheet = doc.getSheetByName("Todos");
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+  }
+  if (todos.length > 0) {
+      var rows = todos.map(function(t) {
+        return [t.id, t.text, t.isCompleted, t.createdAt];
+      });
+      sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+  }
+}
+
+function toggleTodo(doc, id, isCompleted) {
+  var sheet = doc.getSheetByName("Todos");
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.getRange(i + 1, 3).setValue(isCompleted); 
+      break;
+    }
+  }
+}
+
+function deleteRow(doc, sheetName, id) {
+  var sheet = doc.getSheetByName(sheetName);
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
+function sheetToObjects(sheet) {
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      obj[headers[j]] = row[j];
+    }
+    result.push(obj);
+  }
+  return result;
+}`;
+
 const Settings: React.FC<SettingsProps> = ({ categories, onCategoriesChange }) => {
   const [gasUrl, setGasUrl] = useState('');
   const [appTitle, setAppTitle] = useState('生活管家');
   const [newCatName, setNewCatName] = useState('');
   const [showGuide, setShowGuide] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setGasUrl(localStorage.getItem(STORAGE_KEYS.GAS_URL) || '');
@@ -41,6 +230,12 @@ const Settings: React.FC<SettingsProps> = ({ categories, onCategoriesChange }) =
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(DEFAULT_BACKEND_CODE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleAddCategory = () => {
@@ -92,7 +287,22 @@ const Settings: React.FC<SettingsProps> = ({ categories, onCategoriesChange }) =
               <h4 className="font-bold text-gray-800 mb-1">🔗 如何設定雲端同步？</h4>
               <ol className="list-decimal pl-5 space-y-1 mt-1">
                 <li>建立一個新的 Google Sheet。</li>
-                <li>點擊擴充功能 &gt; Apps Script，貼上專案提供的 <code>backend_google_script.gs</code> 代碼。</li>
+                <li>點擊 <span className="font-bold text-nordic-blue">擴充功能 (Extensions)</span> &gt; Apps Script。</li>
+                <li>
+                  複製下方代碼並貼上，覆原有內容：
+                  <div className="relative mt-2 mb-2">
+                    <pre className="bg-gray-800 text-gray-300 p-3 rounded-xl overflow-x-auto text-xs h-32 custom-scrollbar font-mono">
+                      {DEFAULT_BACKEND_CODE}
+                    </pre>
+                    <button
+                      onClick={handleCopyCode}
+                      className="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-lg transition-colors backdrop-blur-sm"
+                      title="複製代碼"
+                    >
+                      {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </li>
                 <li>點擊「部署」 &gt; 「新增部署」 &gt; 類型選擇「網頁應用程式」。</li>
                 <li><strong className="text-red-500">重要：</strong>將「執行身分」設為「我 (Me)」，「存取權」設為「任何人 (Anyone)」。</li>
                 <li>複製產生的網頁應用程式 URL，貼入下方的「Script URL」欄位並儲存。</li>
@@ -147,8 +357,8 @@ const Settings: React.FC<SettingsProps> = ({ categories, onCategoriesChange }) =
               onClick={handleSync}
               disabled={isSyncing}
               className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 border-2 transition-all ${isSyncing
-                  ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'border-nordic-blue text-nordic-blue hover:bg-nordic-blue hover:text-white'
+                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'border-nordic-blue text-nordic-blue hover:bg-nordic-blue hover:text-white'
                 }`}
             >
               <UploadCloud size={18} />
