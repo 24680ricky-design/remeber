@@ -1,0 +1,16 @@
+{
+    "name": "LifeManager",
+    "short_name": "LifeManager",
+    "start_url": "./",
+    "display": "standalone",
+    "background_color": "#fdfbf7",
+    "theme_color": "#fdfbf7",
+    "description": "A simple Nordic-style bookkeeping app.",
+    "icons": [
+        {
+            "src": "icon.png",
+            "sizes": "1024x1024",
+            "type": "image/png"
+        }
+    ]
+}
