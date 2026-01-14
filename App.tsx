@@ -42,8 +42,8 @@ const App: React.FC = () => {
   };
 
   const handleCategoriesChange = (cats: any[]) => {
-      setData(prev => ({ ...prev, categories: cats }));
-      api.saveCategories(cats); // Fire and forget save
+    setData(prev => ({ ...prev, categories: cats }));
+    api.saveCategories(cats); // Fire and forget save
   };
 
   const NavButton = ({ view, icon: Icon, label }: { view: AppView; icon: any; label: string }) => {
@@ -51,11 +51,10 @@ const App: React.FC = () => {
     return (
       <button
         onClick={() => setActiveTab(view)}
-        className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl transition-all duration-300 ${
-          isActive 
-            ? 'bg-nordic-text text-white shadow-lg -translate-y-4 scale-110' 
+        className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl transition-all duration-300 ${isActive
+            ? 'bg-nordic-text text-white shadow-lg -translate-y-4 scale-110'
             : 'text-gray-400 hover:bg-gray-100'
-        }`}
+          }`}
       >
         <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
         {isActive && <span className="text-[10px] mt-1 font-medium animate-fade-in">{label}</span>}
@@ -64,14 +63,14 @@ const App: React.FC = () => {
   };
 
   if (loading) {
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7] text-nordic-blue">
-              <div className="flex flex-col items-center gap-4 animate-pulse">
-                  <div className="w-12 h-12 rounded-full border-4 border-nordic-pink border-t-nordic-green animate-spin"></div>
-                  <span className="font-semibold tracking-widest uppercase text-xs">載入中...</span>
-              </div>
-          </div>
-      )
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7] text-nordic-blue">
+        <div className="flex flex-col items-center gap-4 animate-pulse">
+          <div className="w-12 h-12 rounded-full border-4 border-nordic-pink border-t-nordic-green animate-spin"></div>
+          <span className="font-semibold tracking-widest uppercase text-xs">載入中...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -79,13 +78,13 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="px-8 pt-10 pb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{appTitle}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{appTitle} <span className="text-xs text-nordic-blue font-normal bg-nordic-blue/10 px-2 py-0.5 rounded-full">v1.1</span></h1>
           <p className="text-xs text-gray-400 font-medium uppercase tracking-widest mt-1">
-             {new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' })}
+            {new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' })}
           </p>
         </div>
         <div className="w-10 h-10 rounded-full bg-nordic-pink flex items-center justify-center text-white font-bold text-sm">
-           LM
+          LM
         </div>
       </header>
 
@@ -101,17 +100,17 @@ const App: React.FC = () => {
           />
         )}
         {activeTab === AppView.TODO && (
-          <TodoView 
+          <TodoView
             todos={data.todos}
             onTodosChange={refreshData}
             onNavigateToExpense={handleNavigateToExpense}
           />
         )}
         {activeTab === AppView.SETTINGS && (
-           <Settings 
-             categories={data.categories}
-             onCategoriesChange={handleCategoriesChange}
-           />
+          <Settings
+            categories={data.categories}
+            onCategoriesChange={handleCategoriesChange}
+          />
         )}
       </main>
 
