@@ -165,15 +165,17 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
           <h2 className="text-lg font-bold text-gray-800 tracking-wide pointer-events-none">
             {year}年 <span className="text-nordic-blue">{month}月</span>
           </h2>
+          {/* Hint line */}
+          <div className="h-1 w-8 bg-nordic-blue/20 rounded-full mt-1 group-hover:bg-nordic-blue/40 transition-colors pointer-events-none"></div>
+
           <input
             type="month"
             value={selectedMonth}
             onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          {/* Hint line */}
-          <div className="h-1 w-8 bg-nordic-blue/20 rounded-full mt-1 group-hover:bg-nordic-blue/40 transition-colors"></div>
         </div>
+
         <button onClick={handleNextMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
           <Icons.ChevronRight size={24} />
         </button>
@@ -306,33 +308,35 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
       </div>
 
       {/* Chart & List */}
-      {chartData.length > 0 && (
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">統計分析</h3>
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS_CHART[index % COLORS_CHART.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+      {
+        chartData.length > 0 && (
+          <div className="bg-white p-6 rounded-[2rem] shadow-sm">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">統計分析</h3>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={70}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS_CHART[index % COLORS_CHART.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Grouped Transaction List */}
       <div className="space-y-4">
@@ -389,7 +393,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
           )
         })}
       </div>
-    </div>
+    </div >
   );
 };
 
