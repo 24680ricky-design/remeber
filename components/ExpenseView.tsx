@@ -172,6 +172,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
             type="month"
             value={selectedMonth}
             onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
+            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
         </div>
