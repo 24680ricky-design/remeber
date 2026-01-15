@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { Transaction, Category, TransactionType } from '../types';
 import { api } from '../services/api';
@@ -28,6 +28,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [currency, setCurrency] = useState<string>('TWD');
   const [loading, setLoading] = useState(false);
+  const monthInputRef = useRef<HTMLInputElement>(null);
 
   // Month Selection State (YYYY-MM) - Use Local Time
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -161,7 +162,10 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
         <button onClick={handlePrevMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
           <Icons.ChevronLeft size={24} />
         </button>
-        <div className="relative group cursor-pointer flex flex-col items-center">
+        <div
+          className="relative group cursor-pointer flex flex-col items-center"
+          onClick={() => monthInputRef.current?.showPicker()}
+        >
           <h2 className="text-lg font-bold text-gray-800 tracking-wide pointer-events-none">
             {year}年 <span className="text-nordic-blue">{month}月</span>
           </h2>
@@ -169,11 +173,11 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
           <div className="h-1 w-8 bg-nordic-blue/20 rounded-full mt-1 group-hover:bg-nordic-blue/40 transition-colors pointer-events-none"></div>
 
           <input
+            ref={monthInputRef}
             type="month"
             value={selectedMonth}
             onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
           />
         </div>
 

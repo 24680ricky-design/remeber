@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Todo, Category } from '../types';
 import { Check, Trash2, Plus, X, ArrowRight, GripVertical, Calendar, List as ListIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../services/api';
@@ -126,6 +126,7 @@ const TodoView: React.FC<TodoViewProps> = ({ todos, onTodosChange, onNavigateToE
   const [modalOpen, setModalOpen] = useState(false);
   const [processingTodo, setProcessingTodo] = useState<Todo | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null); // For DragOverlay
+  const monthInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setItems(todos);
@@ -420,14 +421,17 @@ const TodoView: React.FC<TodoViewProps> = ({ todos, onTodosChange, onNavigateToE
             {viewMode === 'schedule' && (
               <div className="flex items-center gap-2">
                 <button onClick={() => adjustMonth(-1)} className="text-gray-400 hover:text-nordic-blue"><ChevronLeft size={20} /></button>
-                <div className="relative cursor-pointer group">
+                <div
+                  className="relative cursor-pointer group"
+                  onClick={() => monthInputRef.current?.showPicker()}
+                >
                   <span className="text-sm font-bold text-gray-700">{year}年 <span className="text-nordic-blue">{month}月</span></span>
                   <input
+                    ref={monthInputRef}
                     type="month"
                     value={selectedMonth}
                     onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                    className="absolute inset-0 opacity-0 pointer-events-none"
                   />
                   <div className="h-0.5 w-full bg-nordic-blue/20 mt-0.5 rounded-full group-hover:bg-nordic-blue/50 transition-colors"></div>
                 </div>
