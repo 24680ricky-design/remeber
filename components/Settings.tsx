@@ -18,7 +18,7 @@ function setup() {
   
   // Ensure sheets exist
   ensureSheet("Transactions", ["id", "date", "type", "categoryId", "amount", "note"]);
-  ensureSheet("Todos", ["id", "text", "isCompleted", "createdAt"]);
+  ensureSheet("Todos", ["id", "text", "isCompleted", "createdAt", "targetDate"]);
 }
 
 function ensureSheet(name, headers) {
@@ -82,7 +82,7 @@ function handleRequest(e) {
        result = { success: true };
     }
     else if (action === "REORDER_TODOS") {
-       updateAllTodos(doc, payload);
+       updateAllTodos(doc, payload); // Payload is the array of todos
        result = { success: true };
     }
     else {
@@ -143,28 +143,36 @@ function addTransaction(doc, data) {
 
 function addTodo(doc, data) {
   var sheet = doc.getSheetByName("Todos");
-  sheet.appendRow([data.id, data.text, data.isCompleted, data.createdAt]);
+  sheet.appendRow([data.id, data.text, data.isCompleted, data.createdAt, data.targetDate || '']);
 }
 
 function updateAllTodos(doc, todos) {
   var sheet = doc.getSheetByName("Todos");
+  // Clear Content but keep headers (Row 1)
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
   }
+  
+  // Batch append
   if (todos.length > 0) {
+      // Prepare 2D array
       var rows = todos.map(function(t) {
-        return [t.id, t.text, t.isCompleted, t.createdAt];
+        return [t.id, t.text, t.isCompleted, t.createdAt, t.targetDate || ''];
       });
-      sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+      
+      // getRange(row, column, numRows, numColumns)
+      sheet.getRange(2, 1, rows.length, 5).setValues(rows);
   }
 }
 
 function toggleTodo(doc, id, isCompleted) {
   var sheet = doc.getSheetByName("Todos");
   var data = sheet.getDataRange().getValues();
+  // Find row by ID (Column 0)
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(id)) {
+      // isCompleted is column index 2 (0, 1, 2)
       sheet.getRange(i + 1, 3).setValue(isCompleted); 
       break;
     }
@@ -181,6 +189,8 @@ function deleteRow(doc, sheetName, id) {
     }
   }
 }
+
+// --- UTILS ---
 
 function sheetToObjects(sheet) {
   var data = sheet.getDataRange().getValues();
@@ -241,7 +251,7 @@ const Settings: React.FC<SettingsProps> = ({ categories, onCategoriesChange }) =
   const handleAddCategory = () => {
     if (!newCatName) return;
     const newCat: Category = {
-      id: `cat_${Date.now()}`,
+      id: `cat_${Date.now()} `,
       label: newCatName,
       iconKey: 'Circle', // Default
       color: '#d1d5db'
@@ -356,10 +366,10 @@ const Settings: React.FC<SettingsProps> = ({ categories, onCategoriesChange }) =
             <button
               onClick={handleSync}
               disabled={isSyncing}
-              className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 border-2 transition-all ${isSyncing
-                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                : 'border-nordic-blue text-nordic-blue hover:bg-nordic-blue hover:text-white'
-                }`}
+              className={`w - full py - 3 rounded - xl font - semibold flex items - center justify - center gap - 2 border - 2 transition - all ${isSyncing
+                  ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'border-nordic-blue text-nordic-blue hover:bg-nordic-blue hover:text-white'
+                } `}
             >
               <UploadCloud size={18} />
               {isSyncing ? '同步中...' : '匯入本機資料到雲端'}
