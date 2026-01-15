@@ -421,17 +421,22 @@ const TodoView: React.FC<TodoViewProps> = ({ todos, onTodosChange, onNavigateToE
             {viewMode === 'schedule' && (
               <div className="flex items-center gap-2">
                 <button onClick={() => adjustMonth(-1)} className="text-gray-400 hover:text-nordic-blue"><ChevronLeft size={20} /></button>
-                <div
-                  className="relative cursor-pointer group"
-                  onClick={() => monthInputRef.current?.showPicker()}
-                >
+                <div className="relative cursor-pointer group">
                   <span className="text-sm font-bold text-gray-700">{year}年 <span className="text-nordic-blue">{month}月</span></span>
                   <input
                     ref={monthInputRef}
                     type="month"
                     value={selectedMonth}
                     onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-                    className="absolute inset-0 opacity-0 pointer-events-none"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      try {
+                        (e.target as HTMLInputElement).showPicker();
+                      } catch (err) {
+                        // Fallback
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                   />
                   <div className="h-0.5 w-full bg-nordic-blue/20 mt-0.5 rounded-full group-hover:bg-nordic-blue/50 transition-colors"></div>
                 </div>

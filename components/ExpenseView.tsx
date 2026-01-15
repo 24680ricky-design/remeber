@@ -162,10 +162,7 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
         <button onClick={handlePrevMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
           <Icons.ChevronLeft size={24} />
         </button>
-        <div
-          className="relative group cursor-pointer flex flex-col items-center"
-          onClick={() => monthInputRef.current?.showPicker()}
-        >
+        <div className="relative group cursor-pointer flex flex-col items-center">
           <h2 className="text-lg font-bold text-gray-800 tracking-wide pointer-events-none">
             {year}年 <span className="text-nordic-blue">{month}月</span>
           </h2>
@@ -177,7 +174,15 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
             type="month"
             value={selectedMonth}
             onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+            onClick={(e) => {
+              e.preventDefault();
+              try {
+                (e.target as HTMLInputElement).showPicker();
+              } catch (err) {
+                console.warn('showPicker not supported', err);
+              }
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
         </div>
 
