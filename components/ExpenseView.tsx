@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { Transaction, Category, TransactionType } from '../types';
-import { Trash2, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 import { COLORS, CURRENCIES } from '../constants';
 import * as Icons from 'lucide-react';
@@ -30,13 +29,31 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
   const [currency, setCurrency] = useState<string>('TWD');
   const [loading, setLoading] = useState(false);
 
+  // Month Selection State (YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+
   // Pre-fill note if coming from Todo
   useEffect(() => {
     if (initialNote) {
       setNote(initialNote);
-      // Optional: Flash UI or focus
     }
   }, [initialNote]);
+
+  const handlePrevMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const newDate = new Date(y, m - 2, 1); // Month is 0-indexed in Date, but 1-indexed in string filter. m-1 is current, m-2 is prev.
+    setSelectedMonth(newDate.toISOString().slice(0, 7));
+  };
+
+  const handleNextMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const newDate = new Date(y, m, 1); // m is next month (since it was 1-indexed and Date takes 0-indexed, so m is m+1 in 0-indexed)
+    setSelectedMonth(newDate.toISOString().slice(0, 7));
+  };
+
+  const currentMonthTransactions = useMemo(() => {
+    return transactions.filter(t => t.date.startsWith(selectedMonth));
+  }, [transactions, selectedMonth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,21 +110,16 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
     }
   };
 
-  // Dashboard Calculations
+  // Dashboard Calculations (Based on Selected Month)
   const summary = useMemo(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const monthTx = transactions.filter(t => t.date.startsWith(currentMonth));
-
-    const income = monthTx.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
-    const expense = monthTx.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
-
+    const income = currentMonthTransactions.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
+    const expense = currentMonthTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
     return { income, expense, balance: income - expense };
-  }, [transactions]);
+  }, [currentMonthTransactions]);
 
-  // Chart Data
+  // Chart Data (Based on Selected Month)
   const chartData = useMemo(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const expenseTx = transactions.filter(t => t.type === TransactionType.EXPENSE && t.date.startsWith(currentMonth));
+    const expenseTx = currentMonthTransactions.filter(t => t.type === TransactionType.EXPENSE);
     const grouped: Record<string, number> = {};
 
     expenseTx.forEach(t => {
@@ -116,24 +128,56 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
     });
 
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
-  }, [transactions, categories]);
+  }, [currentMonthTransactions, categories]);
+
+  // Group Transactions by Date
+  const groupedTransactions = useMemo(() => {
+    const groups: Record<string, Transaction[]> = {};
+    currentMonthTransactions.forEach(t => {
+      if (!groups[t.date]) groups[t.date] = [];
+      groups[t.date].push(t);
+    });
+    // Sort dates descending
+    return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => {
+      const txs = groups[date];
+      const dailyIncome = txs.filter(t => t.type === TransactionType.INCOME).reduce((sum, t) => sum + t.amount, 0);
+      const dailyExpense = txs.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
+      return { date, txs, dailyIncome, dailyExpense };
+    });
+  }, [currentMonthTransactions]);
 
   const COLORS_CHART = ['#8da399', '#8fa3ad', '#e8d5d5', '#f0c4c4', '#b8c5d6'];
 
+  const [year, month] = selectedMonth.split('-');
+
   return (
     <div className="pb-24 animate-fade-in space-y-6">
+
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-[2rem] shadow-sm">
+        <button onClick={handlePrevMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
+          <Icons.ChevronLeft size={24} />
+        </button>
+        <h2 className="text-lg font-bold text-gray-800 tracking-wide">
+          {year}年 <span className="text-nordic-blue">{month}月</span>
+        </h2>
+        <button onClick={handleNextMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
+          <Icons.ChevronRight size={24} />
+        </button>
+      </div>
+
       {/* Dashboard Cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-5 rounded-[2rem] shadow-sm flex flex-col justify-between h-32">
           <div className="flex items-center text-nordic-green mb-2">
-            <TrendingUp size={18} className="mr-2" />
+            <Icons.TrendingUp size={18} className="mr-2" />
             <span className="text-xs font-semibold uppercase tracking-wider">本月收入</span>
           </div>
           <span className="text-2xl font-bold text-gray-800">${summary.income.toLocaleString()}</span>
         </div>
         <div className="bg-white p-5 rounded-[2rem] shadow-sm flex flex-col justify-between h-32">
           <div className="flex items-center text-red-400 mb-2">
-            <TrendingDown size={18} className="mr-2" />
+            <Icons.TrendingDown size={18} className="mr-2" />
             <span className="text-xs font-semibold uppercase tracking-wider">本月支出</span>
           </div>
           <span className="text-2xl font-bold text-gray-800">${summary.expense.toLocaleString()}</span>
@@ -277,29 +321,56 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
         </div>
       )}
 
-      <div className="space-y-3">
-        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest px-4">近期紀錄</h3>
-        {transactions.slice(0, 10).map((tx) => {
-          const cat = categories.find(c => c.id === tx.categoryId);
-          const IconComp = (Icons as any)[cat?.iconKey || 'Circle'] || Icons.Circle;
+      {/* Grouped Transaction List */}
+      <div className="space-y-4">
+        {groupedTransactions.length === 0 && (
+          <div className="text-center text-gray-300 py-10">本月尚無紀錄</div>
+        )}
+
+        {groupedTransactions.map((group) => {
+          const dateObj = new Date(group.date);
+          const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+          const dayStr = dateObj.toLocaleDateString('zh-TW', { weekday: 'long' });
+
           return (
-            <div key={tx.id} className="bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div style={{ backgroundColor: cat?.color || '#eee' }} className="w-10 h-10 rounded-full flex items-center justify-center text-white">
-                  <IconComp size={18} />
+            <div key={group.date} className="animate-fade-in-up">
+              {/* Daily Header */}
+              <div className="flex items-center justify-between px-4 mb-2">
+                <div className="text-sm font-bold text-gray-500">
+                  {dateStr} <span className="text-xs font-normal text-gray-400 ml-1">{dayStr}</span>
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-700 text-sm">{tx.note || cat?.label}</p>
-                  <p className="text-xs text-gray-400">{tx.date}</p>
+                <div className="text-xs font-medium text-gray-400 flex gap-3">
+                  {group.dailyIncome > 0 && <span className="text-nordic-green">+{group.dailyIncome}</span>}
+                  {group.dailyExpense > 0 && <span className="text-red-400">-{group.dailyExpense}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`font-bold ${tx.type === TransactionType.INCOME ? 'text-nordic-green' : 'text-gray-800'}`}>
-                  {tx.type === TransactionType.INCOME ? '+' : '-'}${Math.abs(tx.amount).toLocaleString()}
-                </span>
-                <button onClick={() => handleDelete(tx.id)} className="text-gray-300 hover:text-red-400 transition-colors">
-                  <Trash2 size={16} />
-                </button>
+
+              {/* Transactions for this day */}
+              <div className="space-y-2">
+                {group.txs.map((tx) => {
+                  const cat = categories.find(c => c.id === tx.categoryId);
+                  const IconComp = (Icons as any)[cat?.iconKey || 'Circle'] || Icons.Circle;
+                  return (
+                    <div key={tx.id} className="bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3">
+                        <div style={{ backgroundColor: cat?.color || '#eee' }} className="w-10 h-10 rounded-full flex items-center justify-center text-white">
+                          <IconComp size={18} />
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="font-semibold text-gray-700 text-sm truncate max-w-[120px]">{tx.note || cat?.label}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`font-bold ${tx.type === TransactionType.INCOME ? 'text-nordic-green' : 'text-gray-800'}`}>
+                          {tx.type === TransactionType.INCOME ? '+' : '-'}${Math.abs(tx.amount).toLocaleString()}
+                        </span>
+                        <button onClick={() => handleDelete(tx.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+                          <Icons.Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )
