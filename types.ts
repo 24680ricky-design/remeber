@@ -24,6 +24,7 @@ export interface Todo {
   text: string;
   isCompleted: boolean;
   createdAt: string;
+  targetDate?: string; // YYYY-MM-DD
 }
 
 export interface AppData {

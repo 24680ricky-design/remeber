@@ -7,7 +7,7 @@ function setup() {
   
   // Ensure sheets exist
   ensureSheet("Transactions", ["id", "date", "type", "categoryId", "amount", "note"]);
-  ensureSheet("Todos", ["id", "text", "isCompleted", "createdAt"]);
+  ensureSheet("Todos", ["id", "text", "isCompleted", "createdAt", "targetDate"]);
 }
 
 function ensureSheet(name, headers) {
@@ -132,7 +132,7 @@ function addTransaction(doc, data) {
 
 function addTodo(doc, data) {
   var sheet = doc.getSheetByName("Todos");
-  sheet.appendRow([data.id, data.text, data.isCompleted, data.createdAt]);
+  sheet.appendRow([data.id, data.text, data.isCompleted, data.createdAt, data.targetDate || '']);
 }
 
 function updateAllTodos(doc, todos) {
@@ -147,11 +147,11 @@ function updateAllTodos(doc, todos) {
   if (todos.length > 0) {
       // Prepare 2D array
       var rows = todos.map(function(t) {
-        return [t.id, t.text, t.isCompleted, t.createdAt];
+        return [t.id, t.text, t.isCompleted, t.createdAt, t.targetDate || ''];
       });
       
       // getRange(row, column, numRows, numColumns)
-      sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+      sheet.getRange(2, 1, rows.length, 5).setValues(rows);
   }
 }
 
