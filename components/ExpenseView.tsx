@@ -29,8 +29,11 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
   const [currency, setCurrency] = useState<string>('TWD');
   const [loading, setLoading] = useState(false);
 
-  // Month Selection State (YYYY-MM)
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  // Month Selection State (YYYY-MM) - Use Local Time
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   // Pre-fill note if coming from Todo
   useEffect(() => {
@@ -39,17 +42,17 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
     }
   }, [initialNote]);
 
-  const handlePrevMonth = () => {
+  const adjustMonth = (delta: number) => {
     const [y, m] = selectedMonth.split('-').map(Number);
-    const newDate = new Date(y, m - 2, 1); // Month is 0-indexed in Date, but 1-indexed in string filter. m-1 is current, m-2 is prev.
-    setSelectedMonth(newDate.toISOString().slice(0, 7));
+    // Create date using local time constructor
+    const newDate = new Date(y, m - 1 + delta, 1);
+    const newY = newDate.getFullYear();
+    const newM = newDate.getMonth() + 1;
+    setSelectedMonth(`${newY}-${String(newM).padStart(2, '0')}`);
   };
 
-  const handleNextMonth = () => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const newDate = new Date(y, m, 1); // m is next month (since it was 1-indexed and Date takes 0-indexed, so m is m+1 in 0-indexed)
-    setSelectedMonth(newDate.toISOString().slice(0, 7));
-  };
+  const handlePrevMonth = () => adjustMonth(-1);
+  const handleNextMonth = () => adjustMonth(1);
 
   const currentMonthTransactions = useMemo(() => {
     return transactions.filter(t => t.date.startsWith(selectedMonth));
@@ -158,9 +161,19 @@ const ExpenseView: React.FC<ExpenseViewProps> = ({
         <button onClick={handlePrevMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
           <Icons.ChevronLeft size={24} />
         </button>
-        <h2 className="text-lg font-bold text-gray-800 tracking-wide">
-          {year}年 <span className="text-nordic-blue">{month}月</span>
-        </h2>
+        <div className="relative group cursor-pointer flex flex-col items-center">
+          <h2 className="text-lg font-bold text-gray-800 tracking-wide pointer-events-none">
+            {year}年 <span className="text-nordic-blue">{month}月</span>
+          </h2>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          {/* Hint line */}
+          <div className="h-1 w-8 bg-nordic-blue/20 rounded-full mt-1 group-hover:bg-nordic-blue/40 transition-colors"></div>
+        </div>
         <button onClick={handleNextMonth} className="p-2 text-gray-400 hover:text-nordic-blue transition-colors">
           <Icons.ChevronRight size={24} />
         </button>
